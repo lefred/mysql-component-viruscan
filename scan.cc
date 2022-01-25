@@ -24,7 +24,6 @@
 #define NO_SIGNATURE_CHANGE 0
 #define SIGNATURE_CHANGE 1
 
-
 #include <components/viruscan/scan.h>
 
 REQUIRES_SERVICE_PLACEHOLDER(log_builtins);
@@ -33,6 +32,7 @@ REQUIRES_SERVICE_PLACEHOLDER(dynamic_privilege_register);
 REQUIRES_SERVICE_PLACEHOLDER(udf_registration);
 REQUIRES_SERVICE_PLACEHOLDER(mysql_udf_metadata);
 REQUIRES_SERVICE_PLACEHOLDER(mysql_thd_security_context);
+REQUIRES_SERVICE_PLACEHOLDER(mysql_security_context_options);
 REQUIRES_SERVICE_PLACEHOLDER(global_grants_check);
 REQUIRES_SERVICE_PLACEHOLDER(mysql_current_thread_reader);
 REQUIRES_SERVICE_PLACEHOLDER(mysql_runtime_error);
@@ -56,6 +56,7 @@ static SHOW_VAR viruscan_status_variables[] = {
      SHOW_SCOPE_GLOBAL},
    {nullptr, nullptr, SHOW_LONG, SHOW_SCOPE_GLOBAL}
 };
+
 
 struct scan_result scan_data(const char *data, size_t data_size);
 
@@ -244,6 +245,7 @@ const char *viruscan_udf(UDF_INIT *, UDF_ARGS *args, char *outp,
 
     MYSQL_THD thd;
     mysql_service_mysql_current_thread_reader->get(&thd);
+
     struct scan_result result;
     char buf[1024];
 
@@ -264,8 +266,23 @@ const char *viruscan_udf(UDF_INIT *, UDF_ARGS *args, char *outp,
       snprintf(buf, 1024, "Virus found: %s !!", result.virus_name);
       LogComponentErr(ERROR_LEVEL, ER_LOG_PRINTF_MSG, buf);
       virusfound_status++;
-    }
+      PSI_int signature_psi = {(long)signature_status, false};
 
+      // We need to get some info like user and host
+      Security_context_handle ctx = nullptr;
+      mysql_service_mysql_thd_security_context->get(thd, &ctx);
+      MYSQL_LEX_CSTRING user;
+      MYSQL_LEX_CSTRING host;
+
+      mysql_service_mysql_security_context_options->get(ctx, "priv_user",
+                                                        &user);
+
+      mysql_service_mysql_security_context_options->get(ctx, "priv_host",
+                                                        &host);
+      Virus_array_size = addVirus_element(Virus_array_size, virus_array, time(nullptr), result.virus_name, 
+                                     user.str, host.str, clamav_version ,signature_psi);      
+    }
+     
     *length = strlen(outp);
     return const_cast<char *>(outp);
 }
@@ -380,6 +397,21 @@ static mysql_service_status_t viruscan_service_init() {
     return 1; /* failure: one of the UDF registrations failed */
   }
 
+  native_mutex_init(&LOCK_virus_records_array, nullptr);
+  init_virus_share(&virus_st_share);
+  virus_delete_all_rows();
+  share_list[0] = &virus_st_share;
+  if (mysql_service_pfs_plugin_table->add_tables(&share_list[0],
+                                                 share_list_count)) {
+    LogComponentErr(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "PFS table has NOT been registered successfully!");
+    native_mutex_destroy(&LOCK_virus_records_array);
+    return 1;
+  } else{
+    LogComponentErr(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "PFS table has been registered successfully.");
+  }
+
   return result;
 }
 
@@ -405,6 +437,8 @@ static mysql_service_status_t viruscan_service_deinit() {
 
   LogComponentErr(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG, "uninstalled.");
 
+  native_mutex_destroy(&LOCK_virus_records_array);
+
   return result;
 }
 
@@ -418,10 +452,15 @@ BEGIN_COMPONENT_REQUIRES(viruscan_service)
     REQUIRES_SERVICE(mysql_udf_metadata),
     REQUIRES_SERVICE(udf_registration),
     REQUIRES_SERVICE(mysql_thd_security_context),
+    REQUIRES_SERVICE(mysql_security_context_options),
     REQUIRES_SERVICE(global_grants_check),
     REQUIRES_SERVICE(mysql_current_thread_reader),
     REQUIRES_SERVICE(mysql_runtime_error),
     REQUIRES_SERVICE(status_variable_registration),
+    REQUIRES_SERVICE(pfs_plugin_table),
+    REQUIRES_SERVICE_AS(pfs_plugin_column_integer_v1, pfs_integer),
+    REQUIRES_SERVICE_AS(pfs_plugin_column_string_v1, pfs_string),
+    REQUIRES_SERVICE_AS(pfs_plugin_column_timestamp_v2, pfs_timestamp),  
 END_COMPONENT_REQUIRES();
 
 /* A list of metadata to describe the Component. */

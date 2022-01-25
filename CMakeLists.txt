@@ -24,7 +24,8 @@
 DISABLE_MISSING_PROFILE_WARNING()
 
 MYSQL_ADD_COMPONENT(viruscan
-  scan.cc 
+  scan.cc
+  scan_pfs.cc 
   MODULE_ONLY
   TEST_ONLY
   LINK_LIBRARIES clamav
