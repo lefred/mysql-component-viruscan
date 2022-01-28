@@ -35,13 +35,13 @@ REQUIRES_SERVICE_PLACEHOLDER_AS(pfs_plugin_column_timestamp_v2, pfs_timestamp);
 PFS_engine_table_share_proxy *share_list[1] = {nullptr};
 unsigned int share_list_count = 1;
 
-Virus_record *virus_array = new Virus_record[1];
-int Virus_array_size = 0;
+std::vector<Virus_record *> virus_vector = {nullptr};
+int Virus_vector_size = 0;
 
 /* Global share pointer for a table */
 PFS_engine_table_share_proxy virus_st_share;
 
-native_mutex_t LOCK_virus_records_array;
+native_mutex_t LOCK_virus_vector;
 
 /* Total number of rows in table. */
 unsigned int virus_rows_in_table = 0;
@@ -49,45 +49,56 @@ unsigned int virus_rows_in_table = 0;
 /* Next available index for new record to be stored in global record array. */
 unsigned int virus_next_available_index = 0;
 
-Virus_record virus_records_array[VIRUS_MAX_ROWS] = {0, "", "", "", "", {0, 0}, false} ;
+//Virus_record virus_vector[VIRUS_MAX_ROWS] = {0, "", "", "", "", {0, 0}, false} ;
 
-int addVirus_element(int size, Virus_record * &virus_array, time_t virus_timestamp, 
+
+int addVirus_element(std::vector<Virus_record *>*virus_vector, time_t virus_timestamp, 
                     std::string virus_name, std::string virus_username, std::string virus_hostname, 
                     std::string virus_engine, PSI_int virus_signatures) {
+  
+    Virus_record *newRec = new Virus_record;
+    newRec->virus_timestamp = virus_timestamp;
+    newRec->virus_name = virus_name;
+    newRec->virus_username = virus_username;
+    newRec->virus_hostname = virus_hostname;
+    newRec->virus_engine = virus_engine;
+    newRec->virus_signatures = virus_signatures;
+    newRec->m_exist = true;
+  
+    virus_vector->insert(virus_vector->end(), newRec);
 
-    Virus_record *newArr = new Virus_record[size + 1];
+    Virus_Table_Handle handle;
+    /* Prepare a sample row to be inserted from here */
+    handle.current_row.virus_timestamp = newRec->virus_timestamp;
+    handle.current_row.virus_timestamp = newRec->virus_timestamp;
+    handle.current_row.virus_name = newRec->virus_name;
+    handle.current_row.virus_username = newRec->virus_username;
+    handle.current_row.virus_hostname = newRec->virus_hostname;
+    handle.current_row.virus_engine = newRec->virus_engine;
+    handle.current_row.virus_signatures = newRec->virus_signatures;
+    handle.current_row.virus_username = newRec->virus_username;
+    handle.current_row.m_exist = true;
 
-    for (int index = 0; index < size; index++) {
-        newArr[index] = virus_array[index];
-    }
-    newArr[size].virus_timestamp = virus_timestamp;
-    newArr[size].virus_name = virus_name;
-    newArr[size].virus_username = virus_username;
-    newArr[size].virus_hostname = virus_hostname;
-    newArr[size].virus_engine = virus_engine;
-    newArr[size].virus_signatures = virus_signatures;
-    newArr[size].m_exist = true;
+    /* Insert a row in the table to be added */
+    write_rows_from_component_virus(&handle);
 
-    delete[] virus_array;
-    virus_array = newArr;
-    return size + 1;
-
+    return virus_vector->size();    
+    
 }
 
 int virus_delete_all_rows(void) {
-  native_mutex_lock(&LOCK_virus_records_array);
-  for (int i = 0; i < VIRUS_MAX_ROWS; i++)
-    virus_records_array[i].m_exist = false;
+  native_mutex_lock(&LOCK_virus_vector);
+  virus_vector.erase(virus_vector.begin(), virus_vector.end());
   virus_rows_in_table = 0;
   virus_next_available_index = 0;
-  native_mutex_unlock(&LOCK_virus_records_array);
+  native_mutex_unlock(&LOCK_virus_vector);
   return 0;
 }
 
 PSI_table_handle *virus_open_table(PSI_pos **pos) {
 
-  virus_delete_all_rows();
-  virus_prepare_insert_row();
+  //virus_delete_all_rows();
+  //virus_prepare_insert_row();
   Virus_Table_Handle *temp = new Virus_Table_Handle();
   *pos = (PSI_pos *)(&temp->m_pos);
   return (PSI_table_handle *)temp;
@@ -116,7 +127,10 @@ int virus_rnd_next(PSI_table_handle *handle) {
   Virus_Table_Handle *h = (Virus_Table_Handle *)handle;
   h->m_pos.set_at(&h->m_next_pos);
 
-  Virus_record *record = &virus_records_array[h->m_pos.get_index()];
+  if (virus_rows_in_table == 0 || h->m_pos.get_index() == virus_rows_in_table) {
+    return PFS_HA_ERR_END_OF_FILE;
+  } 
+  Virus_record *record = virus_vector[h->m_pos.get_index()];
   if (record->m_exist) {
       /* Make the current row from records_array buffer */
       copy_record_virus(&h->current_row, record);
@@ -136,7 +150,7 @@ int virus_rnd_init(PSI_table_handle *, bool) {
 /* Set position of a cursor on a specific index */
 int virus_rnd_pos(PSI_table_handle *handle) {
   Virus_Table_Handle *h = (Virus_Table_Handle *)handle;
-  Virus_record *record = &virus_records_array[h->m_pos.get_index()];
+  Virus_record *record = virus_vector[h->m_pos.get_index()];
 
   if (record->m_exist) {
     /* Make the current row from records_array buffer */
@@ -196,25 +210,29 @@ int virus_read_column_value(PSI_table_handle *handle, PSI_field *field,
 int write_rows_from_component_virus(Virus_Table_Handle *handle) {
   if (!handle) return 1;
 
-  native_mutex_lock(&LOCK_virus_records_array);
+  native_mutex_lock(&LOCK_virus_vector);
 
   /* If there is no more space for inserting a record, return */
   if (virus_rows_in_table >= VIRUS_MAX_ROWS) {
-    native_mutex_unlock(&LOCK_virus_records_array);
+    native_mutex_unlock(&LOCK_virus_vector);
     return 1;
   }
 
-  copy_record_virus(&virus_records_array[virus_next_available_index],
+  copy_record_virus(virus_vector[virus_next_available_index],
               &handle->current_row);
   virus_rows_in_table++;
 
   /* set next available index */
   if (virus_rows_in_table < VIRUS_MAX_ROWS) {
-    int i = (virus_next_available_index + 1) % VIRUS_MAX_ROWS;
+    long unsigned int i = (virus_next_available_index) % VIRUS_MAX_ROWS;
     int itr_count = 0;
     while (itr_count < VIRUS_MAX_ROWS) {
-      if (virus_records_array[i].m_exist == false) {
-        virus_next_available_index = i;
+      if (i < virus_vector.size()) {
+        if (virus_vector[i]->m_exist == false) {
+          virus_next_available_index = i;
+          break;
+        }
+      } else {
         break;
       }
       i = (i + 1) % VIRUS_MAX_ROWS;
@@ -222,7 +240,7 @@ int write_rows_from_component_virus(Virus_Table_Handle *handle) {
     }
   }
 
-  native_mutex_unlock(&LOCK_virus_records_array);
+  native_mutex_unlock(&LOCK_virus_vector);
   return 0;
 }
 
@@ -258,18 +276,18 @@ void init_virus_share(PFS_engine_table_share_proxy *share) {
 /* Prepare and insert rows in pfs table */
 int virus_prepare_insert_row() {
   Virus_Table_Handle handle;
-  int array_size = Virus_array_size;
+  int array_size = Virus_vector_size;
   int result = 0;
 
   for (int i = 0; i < array_size; i++) {
       /* Prepare a sample row to be inserted from here */
-      handle.current_row.virus_timestamp = virus_array[i].virus_timestamp;
-      handle.current_row.virus_name = virus_array[i].virus_name;
-      handle.current_row.virus_username = virus_array[i].virus_username;
-      handle.current_row.virus_hostname = virus_array[i].virus_hostname;
-      handle.current_row.virus_engine = virus_array[i].virus_engine;
-      handle.current_row.virus_signatures = virus_array[i].virus_signatures;
-      handle.current_row.virus_username = virus_array[i].virus_username;
+      handle.current_row.virus_timestamp = virus_vector[i]->virus_timestamp;
+      handle.current_row.virus_name = virus_vector[i]->virus_name;
+      handle.current_row.virus_username = virus_vector[i]->virus_username;
+      handle.current_row.virus_hostname = virus_vector[i]->virus_hostname;
+      handle.current_row.virus_engine = virus_vector[i]->virus_engine;
+      handle.current_row.virus_signatures = virus_vector[i]->virus_signatures;
+      handle.current_row.virus_username = virus_vector[i]->virus_username;
       handle.current_row.m_exist = true;
 
       /* Insert a row in the table to be added */

@@ -34,6 +34,7 @@
 
 #include <list>
 #include <string>
+#include <vector>
 
 #include <clamav.h>
 
@@ -148,10 +149,10 @@ typedef unsigned position_t;
 
 extern PFS_engine_table_share_proxy *share_list[];
 extern unsigned int share_list_count; 
-extern native_mutex_t LOCK_virus_records_array;
-extern int Virus_array_size;
-extern Virus_record *virus_array;
-extern int addVirus_element(int size, Virus_record * &virus_array, time_t virus_timestamp, 
+extern native_mutex_t LOCK_virus_vector;
+extern int Virus_vector_size;
+extern std::vector<Virus_record *> virus_vector;
+extern int addVirus_element(std::vector<Virus_record *> *virus_vector, time_t virus_timestamp, 
                     std::string virus_name, std::string virus_username, std::string virus_hostname, 
                     std::string virus_engine, PSI_int virus_signatures);
 extern int virus_prepare_insert_row();

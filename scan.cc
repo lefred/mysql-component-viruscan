@@ -279,7 +279,7 @@ const char *viruscan_udf(UDF_INIT *, UDF_ARGS *args, char *outp,
 
       mysql_service_mysql_security_context_options->get(ctx, "priv_host",
                                                         &host);
-      Virus_array_size = addVirus_element(Virus_array_size, virus_array, time(nullptr), result.virus_name, 
+      Virus_vector_size = addVirus_element(&virus_vector, time(nullptr), result.virus_name, 
                                      user.str, host.str, clamav_version ,signature_psi);      
     }
      
@@ -397,7 +397,7 @@ static mysql_service_status_t viruscan_service_init() {
     return 1; /* failure: one of the UDF registrations failed */
   }
 
-  native_mutex_init(&LOCK_virus_records_array, nullptr);
+  native_mutex_init(&LOCK_virus_vector, nullptr);
   init_virus_share(&virus_st_share);
   virus_delete_all_rows();
   share_list[0] = &virus_st_share;
@@ -405,7 +405,7 @@ static mysql_service_status_t viruscan_service_init() {
                                                  share_list_count)) {
     LogComponentErr(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
                     "PFS table has NOT been registered successfully!");
-    native_mutex_destroy(&LOCK_virus_records_array);
+    native_mutex_destroy(&LOCK_virus_vector);
     return 1;
   } else{
     LogComponentErr(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
@@ -437,7 +437,7 @@ static mysql_service_status_t viruscan_service_deinit() {
 
   LogComponentErr(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG, "uninstalled.");
 
-  native_mutex_destroy(&LOCK_virus_records_array);
+  native_mutex_destroy(&LOCK_virus_vector);
 
   return result;
 }
