@@ -31,8 +31,6 @@
 #include <mysql/components/services/pfs_plugin_table_service.h>
 #include <mysql/components/services/mysql_mutex.h>
 
-//#include <thr_mutex.h>
-
 #include <list>
 #include <string>
 
