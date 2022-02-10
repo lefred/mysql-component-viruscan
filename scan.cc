@@ -195,8 +195,6 @@ struct scan_result scan_data(const char *data, size_t data_size)
   struct scan_result result = {0, "", 0};
   cl_fmap_t *map;
 
-  mysql_mutex_lock(&LOCK_virus_data);
-
   map = cl_fmap_open_memory(data, data_size);
   /* scan file descriptor */
   static struct cl_scan_options cl_scan_options;
@@ -213,11 +211,12 @@ struct scan_result scan_data(const char *data, size_t data_size)
 
   cl_fmap_close(map);
   if (strcmp(data, "bug-stuck") == 0) {
+    mysql_mutex_lock(&LOCK_virus_data);
     LogComponentErr(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
                     "Generating a bug to spend time in mutex");
     my_sleep(5000000); // 5.0s
+    mysql_mutex_unlock(&LOCK_virus_data);
   }
-  mysql_mutex_unlock(&LOCK_virus_data);
 
   return result;
 }
