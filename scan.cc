@@ -210,6 +210,8 @@ struct scan_result scan_data(const char *data, size_t data_size)
                           NULL);
 
   cl_fmap_close(map);
+
+  //just a fake bug
   if (strcmp(data, "bug-stuck") == 0) {
     mysql_mutex_lock(&LOCK_virus_data);
     LogComponentErr(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
