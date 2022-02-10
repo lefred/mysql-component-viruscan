@@ -38,6 +38,8 @@ REQUIRES_SERVICE_PLACEHOLDER(mysql_current_thread_reader);
 REQUIRES_SERVICE_PLACEHOLDER(mysql_runtime_error);
 REQUIRES_SERVICE_PLACEHOLDER(status_variable_registration);
 
+REQUIRES_MYSQL_MUTEX_SERVICE_PLACEHOLDER;
+
 SERVICE_TYPE(log_builtins) * log_bi;
 SERVICE_TYPE(log_builtins_string) * log_bs;
 
@@ -46,6 +48,13 @@ static const char *SCAN_PRIVILEGE_NAME = "VIRUS_SCAN";
 static unsigned int  signature_status = 0;
 static unsigned int  virusfound_status = 0;
 static char clamav_version[10] = "";
+
+PSI_mutex_key key_mutex_virus_data = 0;
+PSI_mutex_info virus_data_mutex[] = {
+  {&key_mutex_virus_data, "virus_scan_data", PSI_FLAG_SINGLETON, PSI_VOLATILITY_PERMANENT,
+     "Virus scan data, permanent mutex, singleton."}
+};
+
 
 static SHOW_VAR viruscan_status_variables[] = {
   {"viruscan.clamav_signatures", (char *)&signature_status, SHOW_INT,
@@ -186,6 +195,8 @@ struct scan_result scan_data(const char *data, size_t data_size)
   struct scan_result result = {0, "", 0};
   cl_fmap_t *map;
 
+  mysql_mutex_lock(&LOCK_virus_data);
+
   map = cl_fmap_open_memory(data, data_size);
   /* scan file descriptor */
   static struct cl_scan_options cl_scan_options;
@@ -201,6 +212,13 @@ struct scan_result scan_data(const char *data, size_t data_size)
                           NULL);
 
   cl_fmap_close(map);
+  if (strcmp(data, "bug-stuck") == 0) {
+    LogComponentErr(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "Generating a bug to spend time in mutex");
+    my_sleep(5000000); // 5.0s
+  }
+  mysql_mutex_unlock(&LOCK_virus_data);
+
   return result;
 }
 
@@ -350,7 +368,7 @@ static mysql_service_status_t viruscan_service_init() {
   log_bs = mysql_service_log_builtins_string;
 
   LogComponentErr(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG, "initializing...");
-
+  mysql_mutex_register("virus_scan", virus_data_mutex, 1);
   register_status_variables();
 
   int rv;
@@ -397,7 +415,7 @@ static mysql_service_status_t viruscan_service_init() {
     return 1; /* failure: one of the UDF registrations failed */
   }
 
-  native_mutex_init(&LOCK_virus_data, nullptr);
+  mysql_mutex_init(key_mutex_virus_data, &LOCK_virus_data, nullptr);
   init_virus_share(&virus_st_share);
   init_virus_data();
   share_list[0] = &virus_st_share;
@@ -405,7 +423,7 @@ static mysql_service_status_t viruscan_service_init() {
                                                  share_list_count)) {
     LogComponentErr(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
                     "PFS table has NOT been registered successfully!");
-    native_mutex_destroy(&LOCK_virus_data);
+    mysql_mutex_destroy(&LOCK_virus_data);
     return 1;
   } else{
     LogComponentErr(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
@@ -439,7 +457,7 @@ static mysql_service_status_t viruscan_service_deinit() {
 
   LogComponentErr(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG, "uninstalled.");
 
-  native_mutex_destroy(&LOCK_virus_data);
+  mysql_mutex_destroy(&LOCK_virus_data);
 
   return result;
 }
@@ -462,7 +480,8 @@ BEGIN_COMPONENT_REQUIRES(viruscan_service)
     REQUIRES_SERVICE(pfs_plugin_table),
     REQUIRES_SERVICE_AS(pfs_plugin_column_integer_v1, pfs_integer),
     REQUIRES_SERVICE_AS(pfs_plugin_column_string_v1, pfs_string),
-    REQUIRES_SERVICE_AS(pfs_plugin_column_timestamp_v2, pfs_timestamp),  
+    REQUIRES_SERVICE_AS(pfs_plugin_column_timestamp_v2, pfs_timestamp),
+    REQUIRES_MYSQL_MUTEX_SERVICE, 
 END_COMPONENT_REQUIRES();
 
 /* A list of metadata to describe the Component. */
