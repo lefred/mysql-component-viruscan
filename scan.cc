@@ -456,6 +456,17 @@ static mysql_service_status_t viruscan_service_deinit() {
 
   delete list;
 
+  if (mysql_service_pfs_plugin_table->delete_tables(&share_list[0],
+                                                    share_list_count)) {
+    LogComponentErr(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "Error while trying to remove PFS table");
+    return 1;
+  } else{
+    LogComponentErr(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "PFS table has been removed successfully.");
+  }
+
+
   LogComponentErr(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG, "uninstalled.");
 
   mysql_mutex_destroy(&LOCK_virus_data);
