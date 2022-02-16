@@ -33,26 +33,24 @@ REQUIRES_SERVICE_PLACEHOLDER_AS(pfs_plugin_column_timestamp_v2, pfs_timestamp);
   DATA
 */
 
-native_mutex_t LOCK_virus_data;
-
 static std::array<Virus_record *, VIRUS_MAX_ROWS> virus_array;
 
 /* Next available index for new record to be stored in global record array. */
 static size_t virus_next_available_index = 0;
 
 void init_virus_data() {
-  native_mutex_lock(&LOCK_virus_data);
+  mysql_mutex_lock(&LOCK_virus_data);
   virus_next_available_index = 0;
   virus_array.fill(nullptr);
-  native_mutex_unlock(&LOCK_virus_data);
+  mysql_mutex_unlock(&LOCK_virus_data);
 }
 
 void cleanup_virus_data() {
-  native_mutex_lock(&LOCK_virus_data);
+  mysql_mutex_lock(&LOCK_virus_data);
   for (Virus_record *virus : virus_array) {
     delete virus;
   }
-  native_mutex_unlock(&LOCK_virus_data);
+  mysql_mutex_unlock(&LOCK_virus_data);
 }
 
 /*
@@ -65,7 +63,7 @@ void addVirus_element(time_t virus_timestamp, std::string virus_name,
   size_t index;
   Virus_record *record;
 
-  native_mutex_lock(&LOCK_virus_data);
+  mysql_mutex_lock(&LOCK_virus_data);
 
   index = virus_next_available_index++ % VIRUS_MAX_ROWS;
   record = virus_array[index];
@@ -84,7 +82,7 @@ void addVirus_element(time_t virus_timestamp, std::string virus_name,
 
   virus_array[index] = record;
 
-  native_mutex_unlock(&LOCK_virus_data);
+  mysql_mutex_unlock(&LOCK_virus_data);
 }
 
 /*

@@ -14,3 +14,4 @@ This component is an example used during the Extending MySQL using the Component
 * [Extending MySQL using the Component Infrastructure – part 9: adding a new function](https://lefred.be/content/extending-mysql-using-the-component-infrastructure-part-9-adding-a-new-function/)
 * [Extending MySQL using the Component Infrastructure – part 10: status variables](https://lefred.be/content/extending-mysql-using-the-component-infrastructure-part-10-status-variables/)
 * [Extending MySQL using the Component Infrastructure – part 11: performance_schema table](https://lefred.be/content/extending-mysql-using-the-component-infrastructure-part-11-performance_schema-table/)
+* [Extending MySQL using the Component Infrastructure – part 12 : instrument your code](https://lefred.be/content/extending-mysql-using-the-component-infrastructure-part-12-instrument-your-code/)

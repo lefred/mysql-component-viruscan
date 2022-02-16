@@ -29,13 +29,14 @@
 #include <mysql/components/services/mysql_runtime_error_service.h>
 #include <mysql/components/services/component_status_var_service.h>
 #include <mysql/components/services/pfs_plugin_table_service.h>
-
-#include <thr_mutex.h>
+#include <mysql/components/services/mysql_mutex.h>
 
 #include <list>
 #include <string>
 
 #include <clamav.h>
+
+#include <my_systime.h>
 
 extern REQUIRES_SERVICE_PLACEHOLDER(log_builtins);
 extern REQUIRES_SERVICE_PLACEHOLDER(log_builtins_string);
@@ -56,6 +57,9 @@ extern REQUIRES_SERVICE_PLACEHOLDER(pfs_plugin_table);
 extern REQUIRES_SERVICE_PLACEHOLDER_AS(pfs_plugin_column_integer_v1, pfs_integer);
 extern REQUIRES_SERVICE_PLACEHOLDER_AS(pfs_plugin_column_string_v1, pfs_string);
 extern REQUIRES_SERVICE_PLACEHOLDER_AS(pfs_plugin_column_timestamp_v2, pfs_timestamp);
+
+extern REQUIRES_MYSQL_MUTEX_SERVICE_PLACEHOLDER;
+
 
 extern SERVICE_TYPE(log_builtins) * log_bi;
 extern SERVICE_TYPE(log_builtins_string) * log_bs;
@@ -121,7 +125,9 @@ extern PFS_engine_table_share_proxy virus_st_share;
 extern PFS_engine_table_share_proxy *share_list[];
 extern unsigned int share_list_count;
 
-extern native_mutex_t LOCK_virus_data;
+static mysql_mutex_t LOCK_virus_data;
+extern PSI_mutex_key key_mutex_virus_data;
+extern PSI_mutex_info virus_data_mutex[];
 
 extern void addVirus_element(time_t virus_timestamp,
                     std::string virus_name, std::string virus_username, std::string virus_hostname,
