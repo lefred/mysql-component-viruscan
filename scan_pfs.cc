@@ -24,9 +24,9 @@
 
 #include <array>
 
-REQUIRES_SERVICE_PLACEHOLDER(pfs_plugin_table);
+REQUIRES_SERVICE_PLACEHOLDER(pfs_plugin_table_v1);
 REQUIRES_SERVICE_PLACEHOLDER_AS(pfs_plugin_column_integer_v1, pfs_integer);
-REQUIRES_SERVICE_PLACEHOLDER_AS(pfs_plugin_column_string_v1, pfs_string);
+REQUIRES_SERVICE_PLACEHOLDER_AS(pfs_plugin_column_string_v2, pfs_string);
 REQUIRES_SERVICE_PLACEHOLDER_AS(pfs_plugin_column_timestamp_v2, pfs_timestamp);
 
 /*

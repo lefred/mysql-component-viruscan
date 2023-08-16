@@ -130,7 +130,7 @@ class udf_list {
 unsigned int reload_engine()
 {
   unsigned int signatureNum = 0;
-  int     rv;
+  cl_error_t rv;
 
   if (engine != NULL)
   {
@@ -372,7 +372,7 @@ static mysql_service_status_t viruscan_service_init() {
   mysql_mutex_register("virus_scan", virus_data_mutex, 1);
   register_status_variables();
 
-  int rv;
+  cl_error_t rv;
   rv = cl_init(CL_INIT_DEFAULT);
   char buf[1024];
   if (CL_SUCCESS != rv) {
@@ -420,7 +420,7 @@ static mysql_service_status_t viruscan_service_init() {
   init_virus_share(&virus_st_share);
   init_virus_data();
   share_list[0] = &virus_st_share;
-  if (mysql_service_pfs_plugin_table->add_tables(&share_list[0],
+  if (mysql_service_pfs_plugin_table_v1->add_tables(&share_list[0],
                                                  share_list_count)) {
     LogComponentErr(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
                     "PFS table has NOT been registered successfully!");
@@ -456,6 +456,17 @@ static mysql_service_status_t viruscan_service_deinit() {
 
   delete list;
 
+  if (mysql_service_pfs_plugin_table_v1->delete_tables(&share_list[0],
+                                                    share_list_count)) {
+    LogComponentErr(ERROR_LEVEL, ER_LOG_PRINTF_MSG,
+                    "Error while trying to remove PFS table");
+    return 1;
+  } else{
+    LogComponentErr(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG,
+                    "PFS table has been removed successfully.");
+  }
+
+
   LogComponentErr(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG, "uninstalled.");
 
   mysql_mutex_destroy(&LOCK_virus_data);
@@ -478,9 +489,9 @@ BEGIN_COMPONENT_REQUIRES(viruscan_service)
     REQUIRES_SERVICE(mysql_current_thread_reader),
     REQUIRES_SERVICE(mysql_runtime_error),
     REQUIRES_SERVICE(status_variable_registration),
-    REQUIRES_SERVICE(pfs_plugin_table),
+    REQUIRES_SERVICE(pfs_plugin_table_v1),
     REQUIRES_SERVICE_AS(pfs_plugin_column_integer_v1, pfs_integer),
-    REQUIRES_SERVICE_AS(pfs_plugin_column_string_v1, pfs_string),
+    REQUIRES_SERVICE_AS(pfs_plugin_column_string_v2, pfs_string),
     REQUIRES_SERVICE_AS(pfs_plugin_column_timestamp_v2, pfs_timestamp),
     REQUIRES_MYSQL_MUTEX_SERVICE, 
 END_COMPONENT_REQUIRES();

@@ -53,9 +53,9 @@ extern REQUIRES_SERVICE_PLACEHOLDER(mysql_runtime_error);
 
 extern REQUIRES_SERVICE_PLACEHOLDER(status_variable_registration);
 
-extern REQUIRES_SERVICE_PLACEHOLDER(pfs_plugin_table);
+extern REQUIRES_SERVICE_PLACEHOLDER(pfs_plugin_table_v1);
 extern REQUIRES_SERVICE_PLACEHOLDER_AS(pfs_plugin_column_integer_v1, pfs_integer);
-extern REQUIRES_SERVICE_PLACEHOLDER_AS(pfs_plugin_column_string_v1, pfs_string);
+extern REQUIRES_SERVICE_PLACEHOLDER_AS(pfs_plugin_column_string_v2, pfs_string);
 extern REQUIRES_SERVICE_PLACEHOLDER_AS(pfs_plugin_column_timestamp_v2, pfs_timestamp);
 
 extern REQUIRES_MYSQL_MUTEX_SERVICE_PLACEHOLDER;
