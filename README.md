@@ -59,7 +59,8 @@ MySQL > select virus_reload_engine();
 
 ## UDF Functions
 
-``` MySQL > select * from performance_schema.user_defined_functions 
+```
+MySQL > select * from performance_schema.user_defined_functions 
             where udf_name like 'virus%';
 +---------------------+-----------------+----------+-------------+-----------------+
 | UDF_NAME            | UDF_RETURN_TYPE | UDF_TYPE | UDF_LIBRARY | UDF_USAGE_COUNT |
