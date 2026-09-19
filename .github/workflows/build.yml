@@ -1,0 +1,29 @@
+name: Build and package VIRUSCAN component
+
+on:
+  push:
+    tags:
+      - "v*"
+
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    uses: lefred/mysql-component-ci/.github/workflows/build-component.yml@main
+    with:
+      component_name: viruscan
+      component_directory: viruscan
+      build_target: component_viruscan
+      component_library: component_viruscan.so
+
+      sdk_image: quay.io/lefred14/mysql-component-build
+      mysql_versions: |
+          9.7.2
+          26.7.0
+
+     
+      extra_packages: clamav-devel 
